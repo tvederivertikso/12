@@ -36,17 +36,25 @@ def _query(uri: str) -> tuple[urllib.parse.ParseResult, dict[str, str]]:
 
 def _stream(q: dict[str, str], security: str | None = None) -> dict[str, Any]:
     network = q.get("type", q.get("network", "tcp"))
+    security = security or q.get("security")
     result: dict[str, Any] = {"network": network}
     if security:
         result["security"] = security
-    elif q.get("security"):
-        result["security"] = q["security"]
     if network == "ws":
         result["wsSettings"] = {"path": q.get("path", "/"), "headers": {"Host": q.get("host", "")}}
     elif network == "grpc":
-        result["grpcSettings"] = {"serviceName": q.get("serviceName", q.get("serviceName", ""))}
+        result["grpcSettings"] = {"serviceName": q.get("serviceName", "")}
     elif network == "httpupgrade":
         result["httpupgradeSettings"] = {"path": q.get("path", "/"), "host": q.get("host", "")}
+    if security == "tls":
+        result["tlsSettings"] = {"serverName": q.get("sni", q.get("host", "")), "allowInsecure": q.get("allowInsecure", "false").lower() == "true"}
+    elif security == "reality":
+        reality: dict[str, Any] = {"show": False, "fingerprint": q.get("fp", "chrome"), "serverName": q.get("sni", q.get("host", ""))}
+        if q.get("pbk"):
+            reality["publicKey"] = q["pbk"]
+        if q.get("sid"):
+            reality["shortId"] = q["sid"]
+        result["realitySettings"] = reality
     return result
 
 
@@ -79,7 +87,10 @@ def to_xray(uri: str) -> dict[str, Any] | None:
     name = urllib.parse.unquote(parsed.fragment) or f"{scheme}://{host}:{port}"
 
     if scheme == "vless":
-        return {"protocol": "vless", "settings": {"vnext": [{"address": host, "port": port, "users": [{"id": urllib.parse.unquote(parsed.username or ""), "encryption": q.get("encryption", "none"), "flow": q.get("flow", "")}]}]}, "streamSettings": _stream(q), "tag": name}
+        user: dict[str, Any] = {"id": urllib.parse.unquote(parsed.username or ""), "encryption": q.get("encryption", "none")}
+        if q.get("flow"):
+            user["flow"] = q["flow"]
+        return {"protocol": "vless", "settings": {"vnext": [{"address": host, "port": port, "users": [user]}]}, "streamSettings": _stream(q), "tag": name}
 
     if scheme == "trojan":
         return {"protocol": "trojan", "settings": {"servers": [{"address": host, "port": port, "password": urllib.parse.unquote(parsed.username or "")} ]}, "streamSettings": _stream(q, q.get("security", "tls")), "tag": name}

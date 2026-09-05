@@ -41,7 +41,23 @@ def wait_port(port: int, deadline: float) -> bool:
     return False
 
 
-def check_one(uri: str, xray: str, timeout: float) -> tuple[str, bool, str]:
+def check_endpoint(port: int, endpoint: str, timeout: float) -> tuple[bool, str]:
+    """Fetch one endpoint through an already running local SOCKS proxy."""
+    result = subprocess.run(
+        ["curl", "--silent", "--show-error", "--compressed", "--location",
+         "--max-time", str(max(2, int(timeout))),
+         "--proxy", f"socks5h://127.0.0.1:{port}",
+         "-A", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/131 Safari/537.36",
+         "-o", os.devnull, "-w", "%{http_code} %{size_download}", endpoint],
+        capture_output=True, text=True, timeout=timeout + 3,
+    )
+    parts = result.stdout.strip().split()
+    code = parts[0] if parts else ""
+    size = int(float(parts[1])) if len(parts) > 1 and parts[1].replace('.', '', 1).isdigit() else 0
+    return code == "200" and size >= 1000, f"HTTP {code or 'failed'}, {size} bytes"
+
+
+def check_one(uri: str, xray: str, timeout: float, endpoints: list[str], attempts: int, required: int) -> tuple[str, bool, str]:
     outbound = to_xray(uri)
     if outbound is None:
         return uri, False, "unsupported"
@@ -52,6 +68,7 @@ def check_one(uri: str, xray: str, timeout: float) -> tuple[str, bool, str]:
         "outbounds": [outbound],
     }
     process = None
+    total_checks = attempts * len(endpoints)
     try:
         with tempfile.TemporaryDirectory(prefix="vpn-check-") as directory:
             config_path = pathlib.Path(directory) / "config.json"
@@ -64,20 +81,18 @@ def check_one(uri: str, xray: str, timeout: float) -> tuple[str, bool, str]:
             )
             if not wait_port(port, time.monotonic() + min(timeout, 8)):
                 return uri, False, "xray did not open SOCKS"
-            result = subprocess.run(
-                ["curl", "--silent", "--show-error", "--compressed",
-                 "--max-time", str(max(2, int(timeout))),
-                 "--proxy", f"socks5h://127.0.0.1:{port}",
-                 "-A", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/131 Safari/537.36",
-                 "-o", os.devnull, "-w", "%{http_code} %{size_download}",
-                 "https://www.avito.ru/"],
-                capture_output=True, text=True, timeout=timeout + 3,
-            )
-            parts = result.stdout.strip().split()
-            code = parts[0] if parts else ""
-            size = int(float(parts[1])) if len(parts) > 1 and parts[1].replace('.', '', 1).isdigit() else 0
-            ok = code == "200" and size >= 1000
-            return uri, ok, f"Avito HTTP {code or 'failed'}, {size} bytes"
+            passed = 0
+            details: list[str] = []
+            for attempt in range(attempts):
+                for endpoint in endpoints:
+                    try:
+                        ok, detail = check_endpoint(port, endpoint, timeout)
+                    except Exception as exc:
+                        ok, detail = False, type(exc).__name__
+                    passed += int(ok)
+                    details.append(f"{endpoint}: {'OK' if ok else detail}")
+            stable = passed >= required
+            return uri, stable, f"stable {passed}/{total_checks}; " + "; ".join(details)
     except Exception as exc:
         return uri, False, type(exc).__name__
     finally:
@@ -98,7 +113,19 @@ def main() -> int:
     parser.add_argument("--limit", type=int, default=0, help="test only first N nodes; 0 means all")
     parser.add_argument("--workers", type=int, default=12)
     parser.add_argument("--timeout", type=float, default=10)
+    parser.add_argument("--attempts", type=int, default=2, help="rounds per endpoint")
+    parser.add_argument("--required", type=int, default=4, help="successful endpoint checks required")
+    parser.add_argument(
+        "--endpoint", action="append", dest="endpoints",
+        default=["https://www.avito.ru/", "https://vk.com/", "https://rutube.ru/"],
+        help="endpoint to fetch; may be repeated",
+    )
     args = parser.parse_args()
+    if args.attempts < 1 or not args.endpoints:
+        parser.error("--attempts must be positive and at least one --endpoint is required")
+    total_checks = args.attempts * len(args.endpoints)
+    if not 1 <= args.required <= total_checks:
+        parser.error(f"--required must be between 1 and {total_checks}")
 
     source_file = ROOT / "sources.txt"
     sources = [line.strip() for line in source_file.read_text(encoding="utf-8").splitlines() if line.strip() and not line.startswith("#")]
@@ -118,8 +145,9 @@ def main() -> int:
     print(f"nodes to test: {len(nodes)}")
 
     results: list[tuple[str, bool, str]] = []
+    print(f"checks per node: {total_checks}; stable threshold: {args.required}")
     with concurrent.futures.ThreadPoolExecutor(max_workers=args.workers) as pool:
-        jobs = [pool.submit(check_one, uri, args.xray, args.timeout) for uri in nodes]
+        jobs = [pool.submit(check_one, uri, args.xray, args.timeout, args.endpoints, args.attempts, args.required) for uri in nodes]
         for index, job in enumerate(concurrent.futures.as_completed(jobs), 1):
             result = job.result()
             results.append(result)

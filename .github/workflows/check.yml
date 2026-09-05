@@ -30,7 +30,12 @@ jobs:
           echo "$RUNNER_TEMP/xray" >> "$GITHUB_PATH"
 
       - name: Check nodes
-        run: python3 scripts/check.py --xray xray --workers 40 --timeout 6
+        run: >-
+          python3 scripts/check.py --xray xray --workers 40 --timeout 6
+          --attempts 2 --required 4
+          --endpoint https://www.avito.ru/
+          --endpoint https://vk.com/
+          --endpoint https://rutube.ru/
 
       - name: Commit subscription and report
         uses: stefanzweifel/git-auto-commit-action@v5

@@ -70,14 +70,14 @@ def check_one(uri: str, xray: str, timeout: float) -> tuple[str, bool, str]:
                  "--proxy", f"socks5h://127.0.0.1:{port}",
                  "-A", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/131 Safari/537.36",
                  "-o", os.devnull, "-w", "%{http_code} %{size_download}",
-                 "https://www.youtube.com/"],
+                 "https://www.avito.ru/"],
                 capture_output=True, text=True, timeout=timeout + 3,
             )
             parts = result.stdout.strip().split()
             code = parts[0] if parts else ""
             size = int(float(parts[1])) if len(parts) > 1 and parts[1].replace('.', '', 1).isdigit() else 0
             ok = code == "200" and size >= 1000
-            return uri, ok, f"YouTube HTTP {code or 'failed'}, {size} bytes"
+            return uri, ok, f"Avito HTTP {code or 'failed'}, {size} bytes"
     except Exception as exc:
         return uri, False, type(exc).__name__
     finally:

@@ -1,0 +1,37 @@
+name: Check VPN subscription
+
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Xray-core
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$(curl -fsSL https://api.github.com/repos/XTLS/Xray-core/releases/latest | jq -r .tag_name)"
+          curl -fsSL "https://github.com/XTLS/Xray-core/releases/download/${VERSION}/Xray-linux-64.zip" -o /tmp/xray.zip
+          mkdir -p "$RUNNER_TEMP/xray"
+          unzip -q /tmp/xray.zip xray -d "$RUNNER_TEMP/xray"
+          chmod +x "$RUNNER_TEMP/xray/xray"
+          echo "$RUNNER_TEMP/xray" >> "$GITHUB_PATH"
+
+      - name: Check nodes
+        run: python3 scripts/check.py --xray xray --workers 12 --timeout 10
+
+      - name: Commit subscription and report
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore: update checked subscription"
+          file_pattern: "output/sub.txt output/report.md"

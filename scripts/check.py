@@ -65,13 +65,19 @@ def check_one(uri: str, xray: str, timeout: float) -> tuple[str, bool, str]:
             if not wait_port(port, time.monotonic() + min(timeout, 8)):
                 return uri, False, "xray did not open SOCKS"
             result = subprocess.run(
-                ["curl", "--silent", "--show-error", "--max-time", str(max(2, int(timeout))),
-                 "--proxy", f"socks5h://127.0.0.1:{port}", "-o", os.devnull,
-                 "-w", "%{http_code}", "https://www.youtube.com/generate_204"],
+                ["curl", "--silent", "--show-error", "--compressed",
+                 "--max-time", str(max(2, int(timeout))),
+                 "--proxy", f"socks5h://127.0.0.1:{port}",
+                 "-A", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/131 Safari/537.36",
+                 "-o", os.devnull, "-w", "%{http_code} %{size_download}",
+                 "https://www.youtube.com/"],
                 capture_output=True, text=True, timeout=timeout + 3,
             )
-            code = result.stdout.strip()
-            return uri, code in {"200", "204", "301", "302"}, f"HTTP {code or 'failed'}"
+            parts = result.stdout.strip().split()
+            code = parts[0] if parts else ""
+            size = int(float(parts[1])) if len(parts) > 1 and parts[1].replace('.', '', 1).isdigit() else 0
+            ok = code == "200" and size >= 1000
+            return uri, ok, f"YouTube HTTP {code or 'failed'}, {size} bytes"
     except Exception as exc:
         return uri, False, type(exc).__name__
     finally:

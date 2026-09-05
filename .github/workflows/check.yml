@@ -13,7 +13,7 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -30,7 +30,7 @@ jobs:
           echo "$RUNNER_TEMP/xray" >> "$GITHUB_PATH"
 
       - name: Check nodes
-        run: python3 scripts/check.py --xray xray --workers 12 --timeout 10
+        run: python3 scripts/check.py --xray xray --workers 40 --timeout 6
 
       - name: Commit subscription and report
         uses: stefanzweifel/git-auto-commit-action@v5

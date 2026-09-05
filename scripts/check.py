@@ -67,7 +67,7 @@ def check_one(uri: str, xray: str, timeout: float) -> tuple[str, bool, str]:
             result = subprocess.run(
                 ["curl", "--silent", "--show-error", "--max-time", str(max(2, int(timeout))),
                  "--proxy", f"socks5h://127.0.0.1:{port}", "-o", os.devnull,
-                 "-w", "%{http_code}", "https://www.gstatic.com/generate_204"],
+                 "-w", "%{http_code}", "https://www.youtube.com/generate_204"],
                 capture_output=True, text=True, timeout=timeout + 3,
             )
             code = result.stdout.strip()

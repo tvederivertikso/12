@@ -116,11 +116,12 @@ def main() -> int:
     parser.add_argument("--attempts", type=int, default=2, help="rounds per endpoint")
     parser.add_argument("--required", type=int, default=4, help="successful endpoint checks required")
     parser.add_argument(
-        "--endpoint", action="append", dest="endpoints",
-        default=["https://www.avito.ru/", "https://vk.com/", "https://rutube.ru/"],
+        "--endpoint", action="append", dest="endpoints", default=None,
         help="endpoint to fetch; may be repeated",
     )
     args = parser.parse_args()
+    if args.endpoints is None:
+        args.endpoints = ["https://www.avito.ru/", "https://vk.com/", "https://rutube.ru/"]
     if args.attempts < 1 or not args.endpoints:
         parser.error("--attempts must be positive and at least one --endpoint is required")
     total_checks = args.attempts * len(args.endpoints)

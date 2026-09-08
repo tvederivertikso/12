@@ -30,7 +30,11 @@ def expand_subscription(text: str) -> list[str]:
 
 
 def _query(uri: str) -> tuple[urllib.parse.ParseResult, dict[str, str]]:
-    parsed = urllib.parse.urlparse(uri)
+    try:
+        parsed = urllib.parse.urlparse(uri)
+    except ValueError:
+        # malformed netloc (e.g. '[email\xa0protected]' obfuscation) must not crash the run
+        parsed = urllib.parse.ParseResult("", "", "", "", "", "")
     return parsed, {k: v[-1] for k, v in urllib.parse.parse_qs(parsed.query).items()}
 
 

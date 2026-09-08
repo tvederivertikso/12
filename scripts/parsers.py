@@ -101,9 +101,14 @@ def to_xray(uri: str) -> dict[str, Any] | None:
 
     if scheme == "ss":
         userinfo = urllib.parse.unquote(parsed.username or "")
-        if not userinfo and parsed.netloc:
+        if parsed.password is not None:
+            userinfo = f"{userinfo}:{urllib.parse.unquote(parsed.password)}"
+        elif ":" not in userinfo and userinfo:
+            # SIP002: userinfo may be base64("method:password")
             try:
-                userinfo = _b64decode(parsed.netloc.split("@", 1)[0])
+                decoded = _b64decode(userinfo)
+                if ":" in decoded:
+                    userinfo = decoded
             except Exception:
                 pass
         if ":" not in userinfo:

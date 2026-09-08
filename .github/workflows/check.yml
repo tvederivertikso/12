@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
   schedule:
-    - cron: "17 * * * *"
+    - cron: "23 * * * *"
   workflow_dispatch:
 
 permissions:
@@ -13,7 +13,7 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -32,7 +32,7 @@ jobs:
       - name: Check nodes
         run: >-
           python3 scripts/check.py --xray xray --workers 40 --timeout 6
-          --attempts 2 --required 4
+          --limit 3000 --attempts 2 --required 4
           --endpoint https://www.avito.ru/
           --endpoint https://vk.com/
           --endpoint https://rutube.ru/

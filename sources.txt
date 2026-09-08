@@ -1,3 +1,21 @@
+# Hidashimora daily-updated configs (big pools first)
+https://raw.githubusercontent.com/Hidashimora/free-vpn-anti-rkn/main/configs/21.2.txt
+https://raw.githubusercontent.com/Hidashimora/free-vpn-anti-rkn/main/configs/10.2.txt
+https://raw.githubusercontent.com/Hidashimora/free-vpn-anti-rkn/main/configs/1.2.txt
+https://raw.githubusercontent.com/Hidashimora/free-vpn-anti-rkn/main/configs/3.2.txt
+https://raw.githubusercontent.com/Hidashimora/free-vpn-anti-rkn/main/configs/12.2.txt
+https://raw.githubusercontent.com/Hidashimora/free-vpn-anti-rkn/main/configs/13.2.txt
+https://raw.githubusercontent.com/Hidashimora/free-vpn-anti-rkn/main/configs/26.2.txt
+https://raw.githubusercontent.com/Hidashimora/free-vpn-anti-rkn/main/configs/19.2.txt
 https://raw.githubusercontent.com/Hidashimora/free-vpn-anti-rkn/main/configs/20.2.txt
 https://raw.githubusercontent.com/Hidashimora/free-vpn-anti-rkn/main/configs/23.1.txt
+# VansFenix parser list
 https://raw.githubusercontent.com/VansFenix/vpnparser/refs/heads/main/all.txt
+# GitVerse aggregators
+https://gitverse.ru/api/repos/kort0881/vpn-aggregator/raw/branch/main/out%2Fsubs%2Fvmess_sub.txt
+https://gitverse.ru/api/repos/Bazz1024/vpn-configs-mirror/raw/branch/main/Vless-Reality-White-Lists-Rus-Mobile.txt
+https://gitverse.ru/api/repos/Pizduk/PizdukVPN/raw/branch/master/sub.txt
+# Small live subscriptions
+https://vless.svinakraft.workers.dev/podpiska.txt
+https://raw.githubusercontent.com/whoahaow/rjsxrd/refs/heads/main/githubmirror/bypass/bypass-all.txt
+https://github.com/Au1rxx/free-vpn-subscriptions/raw/main/output/v2ray-base64.txt

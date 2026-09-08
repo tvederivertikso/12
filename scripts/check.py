@@ -6,6 +6,7 @@ import concurrent.futures
 import json
 import os
 import pathlib
+import random
 import signal
 import socket
 import subprocess
@@ -107,10 +108,25 @@ def check_one(uri: str, xray: str, timeout: float, endpoints: list[str], attempt
                 process.kill()
 
 
+def select_pool(nodes: list[str], limit: int, previous_file: pathlib.Path) -> list[str]:
+    """Pick nodes to test: always keep previously working ones, fill the rest randomly."""
+    if not limit or len(nodes) <= limit:
+        return nodes
+    previous: set[str] = set()
+    if previous_file.exists():
+        previous = {line.strip() for line in previous_file.read_text(encoding="utf-8").splitlines() if line.strip()}
+    known = [uri for uri in nodes if uri in previous]
+    fresh = [uri for uri in nodes if uri not in previous]
+    random.shuffle(fresh)
+    chosen = known + fresh[: max(0, limit - len(known))]
+    random.shuffle(chosen)
+    return chosen
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--xray", default="xray", help="xray executable")
-    parser.add_argument("--limit", type=int, default=0, help="test only first N nodes; 0 means all")
+    parser.add_argument("--limit", type=int, default=0, help="test at most N nodes (previous winners first, rest random); 0 means all")
     parser.add_argument("--workers", type=int, default=12)
     parser.add_argument("--timeout", type=float, default=10)
     parser.add_argument("--attempts", type=int, default=2, help="rounds per endpoint")
@@ -141,34 +157,28 @@ def main() -> int:
             source_counts.append((source, 0))
             print(f"source failed: {source}: {exc}")
     nodes = dedupe(all_uris)
-    if args.limit:
-        nodes = nodes[:args.limit]
-    print(f"nodes to test: {len(nodes)}")
+    pool = select_pool(nodes, args.limit, OUTPUT / "sub.txt")
+    print(f"unique nodes downloaded: {len(nodes)}; testing: {len(pool)}")
 
     results: list[tuple[str, bool, str]] = []
     print(f"checks per node: {total_checks}; stable threshold: {args.required}")
-    with concurrent.futures.ThreadPoolExecutor(max_workers=args.workers) as pool:
-        jobs = [pool.submit(check_one, uri, args.xray, args.timeout, args.endpoints, args.attempts, args.required) for uri in nodes]
+    with concurrent.futures.ThreadPoolExecutor(max_workers=args.workers) as executor:
+        jobs = [executor.submit(check_one, uri, args.xray, args.timeout, args.endpoints, args.attempts, args.required) for uri in pool]
         for index, job in enumerate(concurrent.futures.as_completed(jobs), 1):
             result = job.result()
             results.append(result)
             print(f"[{index}/{len(jobs)}] {'OK' if result[1] else 'FAIL'} {result[2]}")
 
     working = [uri for uri, ok, _ in results if ok]
-    previous = OUTPUT / "sub.txt"
     OUTPUT.mkdir(parents=True, exist_ok=True)
-    retained = False
-    if working:
-        previous.write_text("\n".join(working) + "\n", encoding="utf-8")
-    elif previous.exists() and previous.read_text(encoding="utf-8").strip():
-        retained = True
+    (OUTPUT / "sub.txt").write_text("\n".join(working) + "\n", encoding="utf-8")
     report = ["# VPN subscription check", "", f"Updated: {time.strftime('%Y-%m-%d %H:%M:%S UTC', time.gmtime())}",
-              f"- Downloaded unique nodes: {len(nodes)}", f"- Working now: {len(working)}", f"- Previous result retained: {'yes' if retained else 'no'}", "", "## Sources"]
+              f"- Downloaded unique nodes: {len(nodes)}", f"- Tested now: {len(pool)}", f"- Working now: {len(working)}", "", "## Sources"]
     report.extend(f"- `{url}` — {count} parsed" for url, count in source_counts)
     report += ["", "## Results"]
     report.extend(f"- {'✅' if ok else '❌'} `{detail}` — `{uri[:120]}`" for uri, ok, detail in sorted(results, key=lambda item: not item[1]))
     (OUTPUT / "report.md").write_text("\n".join(report) + "\n", encoding="utf-8")
-    return 0 if working or retained else 1
+    return 0
 
 
 if __name__ == "__main__":

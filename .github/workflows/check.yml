@@ -38,7 +38,28 @@ jobs:
           --endpoint https://rutube.ru/
 
       - name: Commit subscription and report
-        uses: stefanzweifel/git-auto-commit-action@v5
-        with:
-          commit_message: "chore: update checked subscription"
-          file_pattern: "output/sub.txt output/report.md"
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add output/sub.txt output/report.md
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git commit -m "chore: update checked subscription"
+          for i in 1 2 3 4 5; do
+            if git push; then
+              exit 0
+            fi
+            echo "Push failed (attempt $i), likely a concurrent run pushed first; re-committing on top of remote"
+            git fetch origin main
+            git reset --soft origin/main
+            if git diff --cached --quiet; then
+              echo "Remote already has identical output"
+              exit 0
+            fi
+            git commit -m "chore: update checked subscription"
+            sleep $((i * 10))
+          done
+          echo "Could not push after retries"
+          exit 1

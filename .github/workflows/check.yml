@@ -31,8 +31,8 @@ jobs:
 
       - name: Check nodes
         run: >-
-          python3 scripts/check.py --xray xray --workers 40 --timeout 6
-          --limit 3000 --attempts 2 --required 4
+          python3 scripts/check.py --xray xray --workers 64 --timeout 6
+          --limit 6000 --attempts 2 --required 3
           --endpoint https://www.avito.ru/
           --endpoint https://vk.com/
           --endpoint https://rutube.ru/
